@@ -35,12 +35,12 @@ void KalmanFilter::Update(const VectorXd &z) {
 	VectorXd z_pred = H_ * x_;
 	VectorXd y = z - z_pred;
 
-	cout << "y 0 =" << y << endl;
-
 	MatrixXd Ht = H_.transpose();
-	MatrixXd S = H_ * P_ * Ht + R_laser_;
-	MatrixXd Si = S.inverse();
 	MatrixXd PHt = P_ * Ht;
+
+	MatrixXd S = H_ * PHt + R_laser_;
+	MatrixXd Si = S.inverse();
+
 	MatrixXd K = PHt * Si;
 
 	//new estimate
@@ -63,17 +63,39 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 	double vx = x_(2);
 	double vy = x_(3);
 
-	double rho = sqrt(px*px + py*py);
-	double theta = atan2(py, px);
-	double rho_dot = (px*vx + py*vy) / rho;
-	VectorXd h = VectorXd(3);
-	h << rho, theta, rho_dot;
-	VectorXd y = z - h;
+	double rho = 0;
+	double theta = 0;
+	double rho_dot = 0;
+
+	rho = sqrt(px*px + py*py);
+
+	if(fabs(px) < 0.001 || fabs(py) < 0.001){
+		cout << "px or py is very small.." << endl;
+		theta = 0;
+		rho_dot = 0;
+	} else {
+		theta = atan2(py, px);
+		rho_dot = (px*vx + py*vy) / rho;
+	}
+
+	VectorXd z_pred = VectorXd(3);
+	z_pred << rho, theta, rho_dot;
+
+	while ((z_pred(1) - z(1)) > (M_PI/2.0F)){
+		z_pred(1) = z_pred(1) - M_PI;
+	}
+	while ((z(1) - z_pred(1)) > (M_PI/2.0F)){
+		z_pred(1) = z_pred(1) + M_PI;
+	}
+
+	VectorXd y = z - z_pred;
 
 	MatrixXd Ht = Hj_.transpose();
-	MatrixXd S = Hj_ * P_ * Ht + R_radar_;
-	MatrixXd Si = S.inverse();
 	MatrixXd PHt = P_ * Ht;
+
+	MatrixXd S = Hj_ * PHt + R_radar_;
+	MatrixXd Si = S.inverse();
+
 	MatrixXd K = PHt * Si;
 
 	//new estimate
